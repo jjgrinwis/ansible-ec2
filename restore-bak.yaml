@@ -1,0 +1,9 @@
+---
+- name: copy netuitive-agent.conf.bak to netuitive-agent.conf
+  hosts: tag_group_ansible
+  become: True
+  vars:
+    file: /opt/netuitive-agent/conf/netuitive-agent.conf
+  tasks:
+      - name: copy file
+        command: mv {{ file }}.bak {{ file }}

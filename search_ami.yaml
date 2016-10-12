@@ -1,0 +1,22 @@
+---
+# little playbook to lookup AMI id
+# default we're going to look for the latest Amazon AMI 
+# using sort and sort_end to only display latest version
+- name: search ami
+  hosts: localhost
+  vars:
+     name: "amzn-ami-hvm-*-ebs"
+  tasks:
+    - name: search ami tasks
+      ec2_ami_find:
+        name: "{{ name }}"
+        architecture: "x86_64"
+        virtualization_type: "hvm"
+        region: "eu-west-1"
+        sort: name
+        sort_order: descending
+        #sort_end: 1
+      register: ami_find
+
+    - name: print ami_find
+      debug: var=ami_find

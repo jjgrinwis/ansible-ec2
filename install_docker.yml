@@ -1,0 +1,25 @@
+---
+# playbook to install docker on an AMI host
+# first update hosts, then install docker
+- name: update images
+  become: True
+  hosts: tag_group_ansible
+  tasks:
+    - name: run yum update to update all packages
+      yum: name=* state=latest
+
+    - name: install docker on AMI
+      yum: name=docker state=latest
+
+    - name: start docker engine
+      service: name=docker state=started
+
+    - name: add ec2-user to docker group 
+      user: name=ec2-user groups=docker
+
+    - name: run docker info
+      command: "docker info"
+      register: output
+
+    - name: print output
+      debug: var=output

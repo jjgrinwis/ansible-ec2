@@ -1,0 +1,62 @@
+---
+# playbook to create a vpc
+# vpc will have 3 subnets and one subnet attached to route table
+# this extra route table will point to create IGW
+- name: create aws vpc
+  hosts: localhost
+  vars:
+    name: amzn-ami-vpc-nat-hvm-*-gp2
+  tasks:
+    - name: create vpc
+      ec2_vpc:
+        state: present
+        cidr_block: 172.22.0.0/16
+        region: eu-west-1
+        resource_tags:
+          environment: development
+          owner: id984390
+          Name: vpc01-id984390
+        subnets:
+          - cidr: 172.22.1.0/24
+            az: eu-west-1a
+            resource_tags:
+              env: dev
+              Name: web
+              type: public
+          - cidr: 172.22.2.0/24
+            az: eu-west-1b
+            resource_tags:
+              env: dev
+              Name: app
+              type: private
+          - cidr: 172.22.3.0/24
+            az: eu-west-1c
+            resource_tags:
+              env: dev
+              Name: db
+              type: private
+        route_tables:
+          - subnets:
+            - 172.22.1.0/24
+            routes:
+              - dest: 0.0.0.0/0
+                gw: igw
+            resource_tags:
+              Name: vpc01-default
+              type: to_public
+        internet_gateway: True
+      register: vpc
+    
+    - name: search NAT AMI
+      ec2_ami_find:
+        name: "{{ name }}"
+        architecture: "x86_64"
+        virtualization_type: "hvm"
+        region: "eu-west-1"
+        sort: name
+        sort_order: descending
+        sort_end: 1
+      register: ami_find
+
+    - name: show ami_find
+      debug: var=ami_find

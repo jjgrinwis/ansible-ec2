@@ -1,0 +1,27 @@
+---
+# install Netuitive agent in AMI
+# 
+- name: install Netuitive API
+  hosts: tag_group_ansible
+  become: True
+  vars:
+    N_APIKEY: f6de30ec9efae096056f9ad68084dca5
+    file: /opt/netuitive-agent/conf/netuitive-agent.conf
+  tasks:
+    - name: import netuitive key
+      rpm_key: state=present key=https://repos.app.netuitive.com/RPM-GPG-KEY-netuitive
+
+    - name: install repo
+      yum: name=https://repos.app.netuitive.com/rpm/noarch/netuitive-repo-1-0.2.noarch.rpm state=present
+
+    - name: install netuitive-agent
+      yum: name=netuitive-agent state=present
+
+    - name: insert N_APIKEY in netuitive-agent.conf
+      replace: dest="{{ file }}" regexp='<datasource api key>' replace="{{ N_APIKEY }}" backup=yes
+
+    - name: enable docker collector
+      replace: dest="{{ file }}" regexp='(NetuitiveDockerCollector\]\]\nenabled =) False' replace='\1 True'
+
+    - name: restart netuitive service
+      service: name=netuitive-agent state=restarted

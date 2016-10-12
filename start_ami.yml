@@ -1,0 +1,14 @@
+---
+# playbook to shutdown all AMI's
+# ec2 is the group with all AMI's created from dynamic inventory script
+# hostvars needed to lookup ami id
+- name: stop all AMI's
+  hosts: ec2
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: stop ami
+      ec2:
+        region: 'eu-west-1'
+        instance_id: '{{ hostvars[inventory_hostname]["ec2_id"] }}'
+        state: 'started'

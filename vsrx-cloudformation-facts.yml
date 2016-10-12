@@ -1,0 +1,18 @@
+---
+# playbook to get vSRX cloudformation facts
+# default stackname can be overwritten with -e "stack_name=xxx" on cli
+
+- name: Ansible CloudFormation
+  hosts: localhost
+  gather_facts: no
+  vars:
+    stack_name: ansible-vsrx
+  tasks:
+    - name: get CloudFormation stack {{stack_name}} facts from AWS 
+      cloudformation_facts:
+        stack_name: "{{ stack_name }}"
+        region: eu-west-1
+
+    - name: print facts
+      debug: var=hostvars
+      
