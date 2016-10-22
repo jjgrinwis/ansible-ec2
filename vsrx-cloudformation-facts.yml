@@ -16,37 +16,34 @@
 
     # we need vSRXmanagementEIP info from ansible_facts.cloudformation.ansible-vsrx.stack_resources
     - name: Checking IP address of tag_Name_vSRXami
-      debug: var=cloudformation['{{ stack_name }}']['stack_resources']['vSRXmanagementEIP']
+      debug: var=cloudformation['{{ stack_name }}']['stack_resources']['vSRXami']
 
-    # no create var with IP of management address.
-    # the can be done in group_vars stuff but we_re using nested var which took me an hour to find out
-    # stack_name will now automatically be set to value of {{ stack_name }} 
-    - name: set fact
-      set_fact: 
-        vSRX_group: "{{ cloudformation[stack_name]['stack_resources']['vSRXmanagementEIP'] }}"
+    # now from this vSRX istance, get the interface facts
+    # the cloudinformation_facts wont return that result
+    # we're using some basic AWS interface filtering to only lookup interface-index 1,2 and 3 from our vSRX AMI
+    - name: get ec2 eni facts
+      ec2_eni_facts:
+        filters:
+          attachment.instance-id: "{{ cloudformation[stack_name]['stack_resources']['vSRXami'] }}"
+          attachment.device-index: 
+            - "1"
+            - "2"
+            - "3"
+      register: vsrx_interface_facts
 
-    # for now we only have one vSRX, but looping trough array so we can have more vSRX in the future
-    # as we have to localhost for our commands can't use seperate play
-    # it can take some time to boot the vSRX so timeout should be set to couple of minutes
-    - name: wait for vSRX to come online
-      wait_for: port=22 host="{{ item }}" timeout=10
-      with_items: "{{ vSRX_group }}"
+    - debug: var=vsrx_interface_facts['network_interfaces']
 
-    # now copy file using a raw method, no python on vSRX so we can't use copy module
-    # file config file will only activate netconf and set root-authentication
-    - name: copy file with some set commands using raw method
-      raw: scp -i files/id984390-key.pem files/"{{ config_file }}" root@"{{ item }}":/cf/root
-      with_items: "{{ vSRX_group }}"
+   # to make life easy, we're creating a dynamic hash with name and ip: 
+   #"vsrx_interface_ip": {
+   #     "vSRX-ge-0/0/1": "10.10.10.82", 
+   #     "vSRX-ge-0/0/2": "10.10.20.186"
+   # }
+   # default() will create empty hash and then fill hash with combine
+   # this var can be used in vsrx template to set ip addresses on interfaces
+   # we could use cloudformation to set static ip but this makes it more dynamic
+    - name: create hash with interface/private-ip combination
+      set_fact:
+         vsrx_interface_ip: "{{ vsrx_interface_ip|default({}) | combine( { item.description: item.private_ip_address }) }}"
+      with_items: "{{ vsrx_interface_facts['network_interfaces'] }}"
 
-    # now copy file using a raw method, no python on vSRX so we can't use copy module
-    - name: copy file with shell script to configure vSRX 
-      raw: scp -i files/id984390-key.pem files/"{{ shell_commands }}" root@"{{ item }}":/cf/root
-      with_items: "{{ vSRX_group }}"
-
-- name: Configure netconf on vSRX's
-  hosts: tag_Name_vSRXami
-  gather_facts: no
-  tasks:
-    # again, no python on vSRX so run /sbin/sh with shell_commands file to configure vSRX via raw module
-    - name: run shell script to activate initial config
-      raw: /sbin/sh/ /cf/root/"{{ shell_commands }}" >> /cf/root/output.txt
+    - debug: var=vsrx_interface_ip
